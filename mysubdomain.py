@@ -13,8 +13,9 @@ import re
 import json
 import time
 import random
-import netcraft
-import sitedossier
+from netcraft import main as netcraft_get
+from sitedossier import main as sitedossier_get
+import pdb
 
 # 动态配置项
 retrycnt = 3	# 重试次数
@@ -101,11 +102,11 @@ def links_get(domain):
 		src=res.read()
 
 		TempD = re.findall('value="http.*?">',src,re.S)
+
 		for item in TempD:
 			item = item[item.find('//')+2:-2]
 			domainslinks.append(item)
 			domainslinks={}.fromkeys(domainslinks).keys()
-		return domainslinks
 
 	except Exception, e:
 		# print e
@@ -118,9 +119,9 @@ def bing_get(domain):
 	f = 1
 	domainsbing = []
 	while True:
-	    try:            
+	    try:
 	        req=urllib2.Request('http://cn.bing.com/search?count=50&q=site:'+domain+'&first='+str(f))
-	        req.add_header('User-Agent',random_useragent()) 
+	        req.add_header('User-Agent',random_useragent())
 	        res=urllib2.urlopen(req, timeout = 30)
 	        src=res.read()
 	        TempD=re.findall('<cite>(.*?)<\/cite>',src)
@@ -131,7 +132,7 @@ def bing_get(domain):
 	                if not (item.startswith('http://') or item.startswith('https://')):
 	                    item = "http://" + item
 	                proto, rest = urllib2.splittype(item)
-	                host, rest = urllib2.splithost(rest) 
+	                host, rest = urllib2.splithost(rest)
 	                host, port = urllib2.splitport(host)
 	                if port == None:
 	                    item = host
@@ -139,8 +140,8 @@ def bing_get(domain):
 	                    item = host + ":" + port
 	            except:
 	                 print traceback.format_exc()
-	                 pass                            
-	            domainsbing.append(item)         
+	                 pass
+	            domainsbing.append(item)
 	        if f<500 and re.search('class="sb_pagN"',src) is not None:
 	            f = int(f)+50
 	        else:
@@ -159,21 +160,21 @@ def google_get(domain):
     while True:
         try:
             req=urllib2.Request('http://ajax.googleapis.com/ajax/services/search/web?v=1.0&q=site:'+domain+'&rsz=8&start='+str(s))
-            req.add_header('User-Agent',random_useragent()) 
+            req.add_header('User-Agent',random_useragent())
             res=urllib2.urlopen(req, timeout = timeout)
             src=res.read()
             results = json.loads(src)
             TempD = results['responseData']['results']
             for item in TempD:
-                item=item['visibleUrl'] 
+                item=item['visibleUrl']
                 item=item.encode('utf-8')
-                domainsgoogle.append(item)                
+                domainsgoogle.append(item)
             s = int(s)+8
         except Exception, e:
             trytime += 1
             if trytime >= 3:
                 domainsgoogle={}.fromkeys(domainsgoogle).keys()
-                return domainsgoogle 
+                return domainsgoogle
 
 
 def alexa_get(domain):
@@ -197,12 +198,15 @@ def get_subdomain_run(domain):
 	print '* Starting subdomain search task'
 	print '-' * 50
 	mydomains = []
-	mydomains.extend(links_get(domain))
-	mydomains.extend(alexa_get(domain))
-	mydomains.extend(bing_get(domain))
-	mydomains.extend(google_get(domain))
-	mydomains.extend(sitedossier.main(domain))
-	mydomains.extend(netcraft.main(domain))
+
+	schemas = ('links_get', 'alexa_get', 'bing_get',
+		'google_get', 'sitedossier_get', 'netcraft_get')
+	# Avoid None type combination
+	for schema in schemas:
+		result = globals()[schema](domain)
+		if result != None:
+			mydomains.extend(result)
+
 	mydomains = list(set(mydomains))
 	return mydomains
 
@@ -213,4 +217,3 @@ if __name__ == "__main__":
    else:
        print ("usage: %s domain" % sys.argv[0])
        sys.exit(-1)
-
